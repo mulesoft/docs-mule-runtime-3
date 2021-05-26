@@ -6,7 +6,7 @@ endif::[]
 
 
 [[daysbetween1]]
-== daysBetween&#40;Date, Date&#41;: Number
+== daysBetween&#40;from: Date, to: Date&#41;: Number
 
 Returns the number of days between two dates.
 
