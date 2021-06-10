@@ -3,16 +3,18 @@ ifndef::env-site,env-github[]
 include::_attributes.adoc[]
 endif::[]
 
-The Scheduler component enables you to trigger a flow when a time-based condition is met. You can configure it to be triggered at a regular interval or give it a more flexible cron expression. For example, a Scheduler might trigger an event to start a flow every 5 seconds.
+The Scheduler component is an event source that initiates execution of a flow at configured times. You can configure a fixed and repeating frequency (such as every second) or a cron expression. A cron expression can specify one or more specific dates and times, but more commonly, the expression specifies recurring dates, times, or intervals. For example, the cron expression `* * * ? * *` configures a Scheduler to start its flow every second.
 
 Consider the following when you implement a Scheduler in your Mule application:
 
 * Schedulers use the same timezone as the machine on which Mule is running. However, if an application is running in CloudHub, the Scheduler conforms to the UTC timezone, regardless of the geographic region in which the application is running.
-// TODO: MULE-14438
-* The scheduler component can trigger only one flow at any given time, and if a triggered flow is executing, it won't be triggered again until it finishes processing.
-* If xref:execution-engine.adoc#backpressure[back-pressure] is triggered because no resources are available at the time of the trigger, that trigger is skipped.
+* If xref:execution-engine.adoc#backpressure[back pressure] occurs because Mule lacks sufficient resources to process an event in the flow, the application skips the scheduled trigger for the event and throws a MULE:FLOW_BACK_PRESSURE error. This error indicates that the flow cannot accept new events at that time. Anypoint Studio logs this error only once, the first time it occurs.
++
+Using `maxConcurrency` on a Flow component can lead to back pressure if the component contains a Scheduler that runs too frequently or if the flow takes too long to execute. To avoid back pressure and improve performance of the application, you can try the default `maxConcurrency` setting or increase the value so that more instances of the flow can run concurrently. To avoid receiving the error message, use the Scheduler's `disallowConcurrentExecution` property (see xref:scheduler-xml-reference.adoc#scheduler-properties[<scheduler> Properties]). 
++
+To capture log messages each time the Scheduler attempts to trigger an event, you can enable the xref:logging-in-mule#change-the-log-level[DEBUG] logging level in the Mule application.
 //Enhancement request for this: MULE-14930
-* In a Mule runtime engine cluster or multi-worker CloudHub deployment, the Scheduler runs (or triggers the flow) only on the primary node (that is, only in one Mule instance).
+* In a multi-worker CloudHub deployment or in a customer-hosted cluster of Mule runtime engines, the Scheduler runs and executes the flow on the primary node only. That is, it runs on one specific Mule runtime engine and no others.
 
 == Example Projects
 
@@ -30,18 +32,18 @@ To download and open an example project while you are in Anypoint Studio, click 
 
 == Fixed Frequency
 
-You can use the following parameters to set a Scheduler to trigger a flow at a regular intervals.
+You can use the following parameters to set a Scheduler to trigger and execute its flow at a regular intervals.
 
 [%header,cols="1,2,1"]
 |===
 |Attribute |Description |Default
 |*Frequency*
-|The frequency at which the Scheduler triggers the flow. You select the unit of time in the *Time unit* field. Setting the value to `0` or a negative value causes the default value to be used.
+|The frequency at which the Scheduler triggers execution of its flow. You select the unit of time in the *Time unit* field. Setting the value to `0` or a negative value causes the default value to be used.
 |
 1000
 
 | *Start Delay*
-| The amount of time to wait before triggering the flow for the first time after the application is started. This value is expressed in the same unit of time as the frequency.
+| The amount of time to wait before triggering execution of its flow for the first time after the application is started. This value is expressed in the same unit of time as the frequency.
 | 0
 
 | *Time Unit*
@@ -53,10 +55,10 @@ MILLISECONDS, SECONDS, MINUTES, HOURS, DAYS
 
 == Cron Expressions
 
-Cron is a widely used standard for describing time and date information.
+Cron is a widely used standard for describing date-time information and repeating intervals.
 
 The Scheduler keeps track of every second and creates a Mule event when the
-Quartz Cron expression matches your time-date setting. You can trigger the event
+Quartz Cron expression matches your time-date setting. You can configure the Scheduler to trigger
 just once or at regular intervals.
 
 A date-time expression consists of six required settings and can include the
@@ -98,17 +100,17 @@ Note that the Scheduler component also supports Quartz Scheduler special charact
 
 //source info: +http://www.quartz-scheduler.org/documentation/quartz-2.x/tutorials/crontrigger.html+
 
-This example logs the message "hello" every second:
+This example logs the message "hello" every second and allows only one instance of the flow to execute at a time:
 
 [source,XML,linenums]
 ----
-<flow name="cronFlow" doc:id="ae257a5d-6b4f-4006-80c8-e7c76d2f67a0" >
-  <scheduler doc:name="Scheduler" doc:id="e7b68ccb-c6d8-4567-87af-aa7904a50359" >
+<flow name="cronFlow" maxConcurrency="1" >
+  <scheduler doc:name="Scheduler"  >
     <scheduling-strategy >
       <cron expression="* * * * * ?" timeZone="America/Los_Angeles"/>
     </scheduling-strategy>
   </scheduler>
-  <logger level="INFO" doc:name="Logger" doc:id="e2626dbb-54a9-4791-8ffa-b7c9a23e88a1" message='"hello"'/>
+  <logger level="INFO" doc:name="Logger" message='"hello"'/>
 </flow>
 ----
 
@@ -124,12 +126,11 @@ Java equivalents, such as `America/Los_Angeles` and
 
 //source info: +https://docs.oracle.com/javase/8/docs/api/java/time/ZoneId.html+
 
-== Debugging
+== Stop or Start a Scheduler in Debug Mode
 
-In the Studio *Debug Mode* view, the Mule app disables the triggering of events. You can
-instead execute the Scheduler component when debugging by clicking the green arrow icon
-that appears at the bottom of the component.
+In Anypoint Studio, when you run a Mule application using debug mode, an arrow icon appears at the bottom of the Scheduler component. The arrow indicates that you can start or stop the Scheduler from its right-click menu.
 
+By default, the Scheduler runs when in debug mode. If you place a break point on a message processor in the flow, the Scheduler component will start the flow and continue emitting events as scheduled until you stop it. If you set a break point before stopping the Scheduler and the Scheduler emits one or more events, the application queues those events to run through the flow after you finish stepping through the break point.
 
 == See Also
 
